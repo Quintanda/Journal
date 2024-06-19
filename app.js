@@ -9,7 +9,13 @@ dotenv.config({ path: 'secure-key.env' });
 
 
 
+
+const searchEngineKey = process.env.search_engine_key;
+const searchEngineId = process.env.search_engine_id;
 let news;
+
+
+
 
 // Get NewsAPI response
 axios.get('https://newsapi.org/v2/top-headlines?sources=google-news-br&apiKey=6c2697ed284441fd8e4be93de4eda90c')
@@ -18,6 +24,7 @@ axios.get('https://newsapi.org/v2/top-headlines?sources=google-news-br&apiKey=6c
     await getLinks(response.data.articles);
     // News string treatment
     await newsTreatment()
+    await searchImage();
     await saveToMongoDb(news);
   })
   .catch(async function (error) {
@@ -70,7 +77,7 @@ async function getText(url) {
 // Re write the news from the fullText
 async function rewriteAI(fullText, retry = false) {
 
-  // Initialize GoogleGenerativeAI with your API key from environment variables
+  // Initialize GoogleGenerativeAI with the API key from environment variables
   const genAI = new GoogleGenerativeAI(process.env.gemini_key);
 
   // Get the generative model
@@ -98,7 +105,6 @@ async function rewriteAI(fullText, retry = false) {
 
 function newsTreatment(){
 
-
   for (let i = 0; i < news.length; i++){
     try{
       // Treating the news title
@@ -114,8 +120,35 @@ function newsTreatment(){
   }
 }
 
+async function searchImage() {
+
+  for (let i = 0; i < news.length; i++){
+
+    const query = news[i].title;
+    const relatedSite = news[i].url;
+
+    try{
+
+      const url = `https://www.googleapis.com/customsearch/v1?key=${searchEngineKey}&cx=${searchEngineId}&q=${query}&num=1&searchType=image`;
+      try {
+        const response = await axios.get(url);
+        const results = response.data.items;
+
+        console.log(news[i].title);
+        console.log(results[0].link);
+        news[i].urlToImage = results[0].link;
+
+      } catch (error) {
+        console.error('Error making search request:', error);
+      }
+
+    }catch (error) {
+      console.log('For error: ', error);
+    }
+
+  }
+}
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
-
